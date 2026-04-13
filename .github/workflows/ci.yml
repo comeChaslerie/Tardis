@@ -1,0 +1,158 @@
+name: CI
+
+env:
+  MIRROR_SSH_URL: "git@github.com:EpitechPGE1-2025/G-CPE-200-NAN-2-1-robotfactory-2.git"
+  EXECUTABLES: "robot-factory"
+
+on:
+  push:
+    branches-ignore:
+      - no-ga/**
+  pull_request:
+
+jobs:
+
+  check_repository:
+    if: >-
+      !(github.event_name == 'pull_request'
+      && startsWith(github.head_ref, 'no-ga/'))
+    runs-on: ubuntu-latest
+    outputs:
+      is_mirror: ${{ steps.check.outputs.is_mirror }}
+    steps:
+
+      - name: check if repository is mirror
+        id: check
+        run: |
+          MIRROR_REPO=$(echo "$MIRROR_SSH_URL" | sed 's/.*://;s/\.git$//')
+          if [ "$MIRROR_REPO" = "${{ github.repository }}" ]; then
+            echo "is_mirror=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_mirror=false" >> $GITHUB_OUTPUT
+          fi
+
+  check_compilation_and_coding_style:
+    needs: check_repository
+    if: needs.check_repository.outputs.is_mirror != 'true'
+    runs-on: ubuntu-latest
+    container: epitechcontent/epitest-docker
+    steps:
+
+      - name: checkout repository
+        uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 1
+
+      - name: run banana-check-repo
+        run: banana-check-repo
+
+      - name: build with make
+        timeout-minutes: 2
+        shell: bash
+        env:
+          CC: epiclang
+        run: |
+          set -o pipefail
+          make 2>&1 | tee make_output.log
+
+      - name: generate coding style report
+        if: always()
+        run: |
+          if [ -f make_output.log ]; then
+            grep '\[Banana\]' make_output.log | while IFS= read -r line; do
+              FILE=$(echo "$line" | cut -d: -f1)
+              LINE_NUM=$(echo "$line" | cut -d: -f2)
+              SEVERITY=$(echo "$line" | sed 's/.*\[Banana\] \[\([^]]*\)\].*/\1/')
+              DESC=$(echo "$line" | sed 's/.*\] \[[A-Za-z]*\] //')
+              echo "$FILE:$LINE_NUM:$SEVERITY:$DESC" >> coding-style-reports.log
+            done
+          fi
+
+      - name: display coding style errors
+        if: always()
+        run: |
+          if [ -f coding-style-reports.log ]; then
+            while IFS=: read -r FILE LINE SEVERITY CODE; do
+              echo "::error file=$FILE,line=$LINE,title=$SEVERITY coding style error::$CODE"
+            done < coding-style-reports.log
+          fi
+
+      - name: fail job if coding style errors
+        if: always()
+        run: |
+          if [ -s coding-style-reports.log ]; then
+            exit 1
+          fi
+
+      - name: run make clean
+        if: always()
+        run: make clean
+
+      - name: verify executables
+        if: always()
+        run: |
+          FAILS=0
+          for EXEC in $(echo "$EXECUTABLES" | tr ',' ' '); do
+            if [ ! -x "$EXEC" ]; then
+              echo "::error::$EXEC is not executable or missing"
+              FAILS=1
+            fi
+          done
+          exit $FAILS
+
+  run_tests:
+    needs: check_compilation_and_coding_style
+    runs-on: ubuntu-latest
+    container: epitechcontent/epitest-docker
+    steps:
+
+      - name: checkout repository
+        uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 1
+
+      - name: run make tests_run
+        timeout-minutes: 2
+        run: make tests_run
+
+  check_memory:
+    needs: check_compilation_and_coding_style
+    runs-on: ubuntu-latest
+    container: epitechcontent/epitest-docker
+    steps:
+
+      - name: checkout repository
+        uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 1
+
+      - name: run make valgrind
+        timeout-minutes: 2
+        run: make valgrind
+
+      - name: check valgrind output
+        run: |
+          if grep -q "ERROR SUMMARY: [^0]" valgrind-out.txt; then
+            cat valgrind-out.txt
+            exit 1
+          fi
+          cat valgrind-out.txt
+
+  push_to_mirror:
+    needs: [run_tests, check_memory]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: checkout repository
+        uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Mirroring Repository
+        uses: pixta-dev/repository-mirroring-action@v1.1.1
+        with:
+          target_repo_url:
+            ${{ env.MIRROR_SSH_URL }}
+          ssh_private_key:
+            ${{ secrets.GIT_SSH_PRIVATE_KEY }}
