@@ -2,9 +2,7 @@
 
 !*/
 
-!Makefile
-!*.c
-!*.h
+!*.ipynb
 !.gitignore
 !*.md
 !.github/workflows/*
