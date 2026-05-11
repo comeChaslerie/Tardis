@@ -7,3 +7,4 @@
 !*.md
 !.github/workflows/*
 !.README
+!dataset.csv
