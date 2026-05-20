@@ -9,3 +9,4 @@
 !.README
 !cleaned_dataset.csv
 !model.joblib
+!requirements.txt
