@@ -7,4 +7,5 @@
 !*.md
 !.github/workflows/*
 !.README
-!dataset.csv
+!cleaned_dataset.csv
+!model.joblib
