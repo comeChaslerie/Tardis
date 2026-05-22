@@ -116,7 +116,7 @@ def render_delay_distribution(df: pd.DataFrame):
     ax.set_xlabel("Retard (minutes, arrondi)")
     ax.set_ylabel("Nombre d'observations route-mois")
     fig.tight_layout()
-    st.pyplot(fig, use_container_width=True)
+    st.pyplot(fig, width='stretch')
 
 
 # Show the cumulative distribution of delays, with the median highlighted
@@ -142,7 +142,7 @@ def render_delay_cdf(df: pd.DataFrame):
     ax.set_ylabel("% d'observations ≤ X")
     ax.legend()
     fig.tight_layout()
-    st.pyplot(fig, use_container_width=True)
+    st.pyplot(fig, width='stretch')
 
 
 # Render the full overview tab
@@ -213,28 +213,32 @@ def render_top_stations(df: pd.DataFrame):
             data=top_departure_stations,
             x=DELAY_COL,
             y="Departure station",
+            hue="Departure station",
             palette="Reds_r",
+            legend=False,
             ax=ax,
         )
         ax.set_title("Top 10 gares de départ les plus en retard")
         ax.set_xlabel("Retard moyen (minutes)")
         ax.set_ylabel("")
         fig.tight_layout()
-        st.pyplot(fig, use_container_width=True)
+        st.pyplot(fig, width='stretch')
     with arrival_col:
         fig, ax = plt.subplots(figsize=(8, 6))
         sns.barplot(
             data=top_arrival_stations,
             x=DELAY_COL,
             y="Arrival station",
+            hue="Arrival station",
             palette="Reds_r",
+            legend=False,
             ax=ax,
         )
         ax.set_title("Top 10 gares d'arrivée les plus en retard")
         ax.set_xlabel("Retard moyen (minutes)")
         ax.set_ylabel("")
         fig.tight_layout()
-        st.pyplot(fig, use_container_width=True)
+        st.pyplot(fig, width='stretch')
 
 
 # Show the top 10 most delayed routes
@@ -243,12 +247,20 @@ def render_top_routes(df: pd.DataFrame):
     top_routes = df.groupby("Route")[DELAY_COL].mean().nlargest(10).reset_index()
 
     fig, ax = plt.subplots(figsize=(10, 6))
-    sns.barplot(data=top_routes, x=DELAY_COL, y="Route", palette="Reds_r", ax=ax)
+    sns.barplot(
+        data=top_routes,
+        x=DELAY_COL,
+        y="Route",
+        hue="Route",
+        palette="Reds_r",
+        legend=False,
+        ax=ax,
+    )
     ax.set_title("Top 10 routes les plus en retard")
     ax.set_xlabel("Retard moyen (minutes)")
     ax.set_ylabel("")
     fig.tight_layout()
-    st.pyplot(fig, use_container_width=True)
+    st.pyplot(fig, width='stretch')
 
 
 # Render the full exploration tab
@@ -282,7 +294,9 @@ MODEL_FEATURES = [
     "Year",
     "Traffic_Pressure",
     "Cancellation_Severity",
-    "Heavy_Delay_Impact",
+    "Hight_Delay_Impact",
+    "Medium_Delay_Impact",
+    "Light_Delay_Impact",
     "Internal_Fault_pct",
     "External_Fault_pct",
     "Delay_Probability",
@@ -293,7 +307,9 @@ ADVANCED_FEATURES = [
     "Average journey time",
     "Traffic_Pressure",
     "Cancellation_Severity",
-    "Heavy_Delay_Impact",
+    "Hight_Delay_Impact",
+    "Medium_Delay_Impact",
+    "Light_Delay_Impact",
     "Internal_Fault_pct",
     "External_Fault_pct",
     "Delay_Probability",
@@ -436,13 +452,19 @@ def render_feature_importances(model):
 
     fig, ax = plt.subplots(figsize=(10, 5))
     sns.barplot(
-        data=top_features, x="Importance", y="Caractéristique", palette="Reds_r", ax=ax
+        data=top_features,
+        x="Importance",
+        y="Caractéristique",
+        hue="Caractéristique",
+        palette="Reds_r",
+        legend=False,
+        ax=ax,
     )
     ax.set_title("Top 10 caractéristiques les plus influentes du modèle")
     ax.set_xlabel("Importance")
     ax.set_ylabel("")
     fig.tight_layout()
-    st.pyplot(fig, use_container_width=True)
+    st.pyplot(fig, width='stretch')
 
 
 # Render the full prediction tab
