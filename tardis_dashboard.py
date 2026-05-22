@@ -5,7 +5,6 @@ import streamlit as st
 import joblib
 
 
-
 ## - Initialisation
 
 # File paths for the dataset and the trained model
@@ -19,24 +18,27 @@ st.set_page_config(
     layout="wide",
 )
 
+
 # Load the dataset and add a proper date column
 @st.cache_data
 def load_data() -> pd.DataFrame:
     df = pd.read_csv(DATASET_PATH)
     return df
 
+
 # Load the trained model
 @st.cache_resource
 def load_model():
     return joblib.load(MODEL_PATH)
+
 
 # A train is considered on time if its delay is under 5 minutes
 PUNCTUALITY_THRESHOLD_MIN = 5.0
 DELAY_COL = "Average delay of all trains at arrival"
 
 
-
 ## - Overview
+
 
 # Show the 4 metrics at the top of the overview tab
 def render_kpis(df: pd.DataFrame):
@@ -56,11 +58,23 @@ def render_kpis(df: pd.DataFrame):
     )
     col4.metric("Taux d'annulation", f"{cancel_rate:.2f} %")
 
+
 # Short month labels used on the heatmap
 MONTH_LABELS = {
-    1: "JAN", 2: "FEV", 3: "MARS", 4: "AVR", 5: "MAI", 6: "JUIN",
-    7: "JUIL", 8: "AOUT", 9: "SEPT", 10: "OCT", 11: "NOV", 12: "DEC",
+    1: "JAN",
+    2: "FEV",
+    3: "MARS",
+    4: "AVR",
+    5: "MAI",
+    6: "JUIN",
+    7: "JUIL",
+    8: "AOUT",
+    9: "SEPT",
+    10: "OCT",
+    11: "NOV",
+    12: "DEC",
 }
+
 
 # Show a heatmap of average delays per month, for the last 3 years
 def render_delay_heatmap(df: pd.DataFrame):
@@ -77,13 +91,17 @@ def render_delay_heatmap(df: pd.DataFrame):
     # Draw the heatmap
     fig, ax = plt.subplots(figsize=(12, 4))
     sns.heatmap(delay_by_year_month, annot=True, fmt=".1f", cmap="RdYlGn_r", ax=ax)
-    ax.set_title("Retard moyen à l'arrivée par année x mois (minutes) - 3 dernières années")
+    ax.set_title(
+        "Retard moyen à l'arrivée par année x mois (minutes) - 3 dernières années"
+    )
     ax.set_xlabel("Mois")
     ax.set_ylabel("Année")
     st.pyplot(fig)
 
+
 # Common figure size for the two side-by-side graphs
 SIDE_BY_SIDE_FIGSIZE = (8, 5)
+
 
 # Show how delays are distributed across all observations
 def render_delay_distribution(df: pd.DataFrame):
@@ -100,6 +118,7 @@ def render_delay_distribution(df: pd.DataFrame):
     fig.tight_layout()
     st.pyplot(fig, use_container_width=True)
 
+
 # Show the cumulative distribution of delays, with the median highlighted
 def render_delay_cdf(df: pd.DataFrame):
     # Sort delays and compute the percentage
@@ -113,7 +132,9 @@ def render_delay_cdf(df: pd.DataFrame):
 
     # Add reference lines for the median
     median_delay = df[DELAY_COL].quantile(0.5)
-    ax.axhline(50, color="gray", linestyle=":", label=f"Médiane (P50 = {median_delay:.1f} min)")
+    ax.axhline(
+        50, color="gray", linestyle=":", label=f"Médiane (P50 = {median_delay:.1f} min)"
+    )
     ax.axvline(median_delay, color="gray", linestyle=":")
 
     ax.set_title("Distribution cumulative des retards")
@@ -122,6 +143,7 @@ def render_delay_cdf(df: pd.DataFrame):
     ax.legend()
     fig.tight_layout()
     st.pyplot(fig, use_container_width=True)
+
 
 # Render the full overview tab
 def render_overview(df: pd.DataFrame):
@@ -136,15 +158,17 @@ def render_overview(df: pd.DataFrame):
         render_delay_cdf(df)
 
 
-
 ## - Exploration
+
 
 # Show the filter controls and return the filtered dataset
 def apply_exploration_filters(df: pd.DataFrame) -> pd.DataFrame:
     # Collect the user's filter choices
     with st.expander("Filtres", expanded=True):
         service_col, departure_col, arrival_col = st.columns(3)
-        selected_services = service_col.multiselect("Service", sorted(df["Service"].unique()))
+        selected_services = service_col.multiselect(
+            "Service", sorted(df["Service"].unique())
+        )
         selected_departures = departure_col.multiselect(
             "Gare de départ", sorted(df["Departure station"].unique())
         )
@@ -170,24 +194,28 @@ def apply_exploration_filters(df: pd.DataFrame) -> pd.DataFrame:
     row_mask &= df["Month"].between(selected_months[0], selected_months[1])
     return df[row_mask]
 
+
 # Show the top 10 most delayed departure and arrival stations
 def render_top_stations(df: pd.DataFrame):
     # Average delay per station, then keep the worst 10
     top_departure_stations = (
-        df.groupby("Departure station")[DELAY_COL].mean()
-        .nlargest(10).reset_index()
+        df.groupby("Departure station")[DELAY_COL].mean().nlargest(10).reset_index()
     )
     top_arrival_stations = (
-        df.groupby("Arrival station")[DELAY_COL].mean()
-        .nlargest(10).reset_index()
+        df.groupby("Arrival station")[DELAY_COL].mean().nlargest(10).reset_index()
     )
 
     # Display both graphs side by side
     departure_col, arrival_col = st.columns(2)
     with departure_col:
         fig, ax = plt.subplots(figsize=(8, 6))
-        sns.barplot(data=top_departure_stations, x=DELAY_COL, y="Departure station",
-                    palette="Reds_r", ax=ax)
+        sns.barplot(
+            data=top_departure_stations,
+            x=DELAY_COL,
+            y="Departure station",
+            palette="Reds_r",
+            ax=ax,
+        )
         ax.set_title("Top 10 gares de départ les plus en retard")
         ax.set_xlabel("Retard moyen (minutes)")
         ax.set_ylabel("")
@@ -195,21 +223,24 @@ def render_top_stations(df: pd.DataFrame):
         st.pyplot(fig, use_container_width=True)
     with arrival_col:
         fig, ax = plt.subplots(figsize=(8, 6))
-        sns.barplot(data=top_arrival_stations, x=DELAY_COL, y="Arrival station",
-                    palette="Reds_r", ax=ax)
+        sns.barplot(
+            data=top_arrival_stations,
+            x=DELAY_COL,
+            y="Arrival station",
+            palette="Reds_r",
+            ax=ax,
+        )
         ax.set_title("Top 10 gares d'arrivée les plus en retard")
         ax.set_xlabel("Retard moyen (minutes)")
         ax.set_ylabel("")
         fig.tight_layout()
         st.pyplot(fig, use_container_width=True)
 
+
 # Show the top 10 most delayed routes
 def render_top_routes(df: pd.DataFrame):
     # Average delay per route, then keep the worst 10
-    top_routes = (
-        df.groupby("Route")[DELAY_COL].mean()
-        .nlargest(10).reset_index()
-    )
+    top_routes = df.groupby("Route")[DELAY_COL].mean().nlargest(10).reset_index()
 
     fig, ax = plt.subplots(figsize=(10, 6))
     sns.barplot(data=top_routes, x=DELAY_COL, y="Route", palette="Reds_r", ax=ax)
@@ -218,6 +249,7 @@ def render_top_routes(df: pd.DataFrame):
     ax.set_ylabel("")
     fig.tight_layout()
     st.pyplot(fig, use_container_width=True)
+
 
 # Render the full exploration tab
 def render_exploration(df: pd.DataFrame):
@@ -230,27 +262,43 @@ def render_exploration(df: pd.DataFrame):
         return
 
     # Show the row count, then draw the graphs
-    st.caption(f"Sélection courante : **{len(filtered_df):,}** observations".replace(",", " "))
+    st.caption(
+        f"Sélection courante : **{len(filtered_df):,}** observations".replace(",", " ")
+    )
     render_top_stations(filtered_df)
     render_top_routes(filtered_df)
-
 
 
 ## - Prediction
 
 # Model features in order
-MODEL_FEATURES = ["Service", "Departure station", "Arrival station", "Route",
-    "Average journey time", "Month", "Year",
-    "Traffic_Pressure", "Cancellation_Severity", "Heavy_Delay_Impact",
-    "Internal_Fault_pct", "External_Fault_pct", "Delay_Probability",
+MODEL_FEATURES = [
+    "Service",
+    "Departure station",
+    "Arrival station",
+    "Route",
+    "Average journey time",
+    "Month",
+    "Year",
+    "Traffic_Pressure",
+    "Cancellation_Severity",
+    "Heavy_Delay_Impact",
+    "Internal_Fault_pct",
+    "External_Fault_pct",
+    "Delay_Probability",
 ]
 
 # Model features filled by history
 ADVANCED_FEATURES = [
-    "Average journey time", "Traffic_Pressure", "Cancellation_Severity",
-    "Heavy_Delay_Impact", "Internal_Fault_pct", "External_Fault_pct",
+    "Average journey time",
+    "Traffic_Pressure",
+    "Cancellation_Severity",
+    "Heavy_Delay_Impact",
+    "Internal_Fault_pct",
+    "External_Fault_pct",
     "Delay_Probability",
 ]
+
 
 # Show the prediction controls and return the filtered dataset
 def render_prediction_form(df: pd.DataFrame):
@@ -259,7 +307,9 @@ def render_prediction_form(df: pd.DataFrame):
 
         # Trip identity: service and stations
         service_col, departure_col, arrival_col = st.columns(3)
-        selected_service = service_col.selectbox("Service", sorted(df["Service"].unique()))
+        selected_service = service_col.selectbox(
+            "Service", sorted(df["Service"].unique())
+        )
         selected_departure = departure_col.selectbox(
             "Gare de départ", sorted(df["Departure station"].unique())
         )
@@ -300,6 +350,7 @@ def render_prediction_form(df: pd.DataFrame):
         **advanced_values,
     }
 
+
 # Run the model on the user's choices and show the result next to the history
 def render_prediction_result(df: pd.DataFrame, model, user_inputs: dict):
     # Predict the delay for the selected trip
@@ -326,6 +377,7 @@ def render_prediction_result(df: pd.DataFrame, model, user_inputs: dict):
     )
     history_col.metric(mean_label, f"{historical_mean:.2f} min")
 
+
 # Model feature readable names
 FEATURE_LABELS = {
     "Service": "Type de train (National / International)",
@@ -346,16 +398,22 @@ FEATURE_LABELS = {
 # Categorical features (one-hot encoded by the model)
 CATEGORICAL_FEATURES = {"Service", "Departure station", "Arrival station", "Route"}
 
+
 # Turn a raw feature name from the model into a clean French label
 def convert_feature_name(raw_feature_name: str) -> str:
     # Drop the encoder prefix
-    cleaned_name = raw_feature_name.split("__", 1)[1] if "__" in raw_feature_name else raw_feature_name
+    cleaned_name = (
+        raw_feature_name.split("__", 1)[1]
+        if "__" in raw_feature_name
+        else raw_feature_name
+    )
 
     # Only keep the base name
     for categorical in CATEGORICAL_FEATURES:
         if cleaned_name.startswith(f"{categorical}_") or cleaned_name == categorical:
             return FEATURE_LABELS[categorical]
     return FEATURE_LABELS.get(cleaned_name, cleaned_name)
+
 
 # Show the 10 features that influence the model the most
 def render_feature_importances(model):
@@ -368,17 +426,24 @@ def render_feature_importances(model):
     feature_importances = pd.Series(estimator.feature_importances_, index=feature_names)
 
     # Keep the top 10 and rename them for display
-    top_features = feature_importances.sort_values(ascending=False).head(10).reset_index()
+    top_features = (
+        feature_importances.sort_values(ascending=False).head(10).reset_index()
+    )
     top_features.columns = ["Caractéristique", "Importance"]
-    top_features["Caractéristique"] = top_features["Caractéristique"].map(convert_feature_name)
+    top_features["Caractéristique"] = top_features["Caractéristique"].map(
+        convert_feature_name
+    )
 
     fig, ax = plt.subplots(figsize=(10, 5))
-    sns.barplot(data=top_features, x="Importance", y="Caractéristique", palette="Reds_r", ax=ax)
+    sns.barplot(
+        data=top_features, x="Importance", y="Caractéristique", palette="Reds_r", ax=ax
+    )
     ax.set_title("Top 10 caractéristiques les plus influentes du modèle")
     ax.set_xlabel("Importance")
     ax.set_ylabel("")
     fig.tight_layout()
     st.pyplot(fig, use_container_width=True)
+
 
 # Render the full prediction tab
 def render_prediction(df: pd.DataFrame, model):
@@ -399,24 +464,27 @@ def render_prediction(df: pd.DataFrame, model):
     render_feature_importances(model)
 
 
-
 ## - Dashboard
+
 
 # Main function
 def main():
-    st.title(":train: TARDIS - Prédire l'imprévisible")   # Set Dashboard title
+    st.title(":train: TARDIS - Prédire l'imprévisible")  # Set Dashboard title
 
-    df = load_data()    # load dataframe
-    model = load_model()    # load model
+    df = load_data()  # load dataframe
+    model = load_model()  # load model
 
-    overview, exploration, prediction = st.tabs(    # Set Dashboard differents tabs
+    overview, exploration, prediction = st.tabs(  # Set Dashboard differents tabs
         ["Vue d'ensemble", "Exploration", "Prédiction"]
     )
     with overview:
-        render_overview(df) # Load Overview tab with render_overview function
+        render_overview(df)  # Load Overview tab with render_overview function
     with exploration:
-        render_exploration(df) # Load Exploration tab with render_exploration function
+        render_exploration(df)  # Load Exploration tab with render_exploration function
     with prediction:
-        render_prediction(df, model) # Load Prediction tab with render_prediction function
+        render_prediction(
+            df, model
+        )  # Load Prediction tab with render_prediction function
+
 
 main()
