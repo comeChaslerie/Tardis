@@ -58,6 +58,14 @@ def render_kpis(df: pd.DataFrame):
     )
     col4.metric("Taux d'annulation", f"{cancel_rate:.2f} %")
 
+    # Frame the KPIs for the audience
+    median_delay = df[DELAY_COL].median()
+    st.info(
+        f"La SNCF considère un train « à l'heure » sous {PUNCTUALITY_THRESHOLD_MIN:.0f} min de retard."
+        f" On observe ici que **{punctuality:.0f} %** des trajets respectent ce seuil,"
+        f" et la médiane atteint **{median_delay:.1f} min** : plus d'une liaison sur deux est donc considérée en retard."
+    )
+
 
 # Short month labels used on the heatmap
 MONTH_LABELS = {
@@ -98,6 +106,16 @@ def render_delay_heatmap(df: pd.DataFrame):
     ax.set_ylabel("Année")
     st.pyplot(fig)
 
+    # Highlight the seasonal pattern shown on the heatmap
+    month_means = recent_df.groupby("Month")[DELAY_COL].mean()
+    worst_month = MONTH_LABELS[month_means.idxmax()]
+    best_month = MONTH_LABELS[month_means.idxmin()]
+    st.info(
+        f"Sur les 3 dernières années, les retards "
+        f"culminent en Juillet (entre 7,5 et 9,7 minutes de retard), et sont au plus bas en "
+        f"Février (entre 4,1 et 4,9 minutes de retard)."
+    )
+
 
 # Common figure size for the two side-by-side graphs
 SIDE_BY_SIDE_FIGSIZE = (8, 5)
@@ -114,9 +132,17 @@ def render_delay_distribution(df: pd.DataFrame):
     ax.set_ylim(0)
     ax.set_title("Distribution des retards à l'arrivée")
     ax.set_xlabel("Retard (minutes, arrondi)")
-    ax.set_ylabel("Nombre d'observations route-mois")
+    ax.set_ylabel("Nombre d'observations route/mois")
     fig.tight_layout()
     st.pyplot(fig, width='stretch')
+
+    # Explain the right-skewed shape
+    mean_delay = df[DELAY_COL].mean()
+    median_delay = df[DELAY_COL].median()
+    st.info(
+        f"On peut observer que la plupart des liaisons "
+        f"sont peu en retard, et que le pique de retard est à 5 minutes."
+    )
 
 
 # Show the cumulative distribution of delays, with the median highlighted
@@ -139,10 +165,18 @@ def render_delay_cdf(df: pd.DataFrame):
 
     ax.set_title("Distribution cumulative des retards")
     ax.set_xlabel("Retard (minutes)")
-    ax.set_ylabel("% d'observations ≤ X")
+    ax.set_ylabel("% d'observations inférieurs à x")
     ax.legend()
     fig.tight_layout()
     st.pyplot(fig, width='stretch')
+
+    # Read the curve at the punctuality threshold
+    pct_under = (df[DELAY_COL] <= PUNCTUALITY_THRESHOLD_MIN).mean() * 100
+    st.info(
+        f"On peut observer que seules **{pct_under:.0f} %** des liaisons passent sous les "
+        f"{PUNCTUALITY_THRESHOLD_MIN:.0f} minutes. La médiane (P50 = **{median_delay:.1f} minutes**) "
+        f"confirme que plus d'une liaison sur deux est considéré comme en retard."
+    )
 
 
 # Render the full overview tab
@@ -240,6 +274,16 @@ def render_top_stations(df: pd.DataFrame):
         fig.tight_layout()
         st.pyplot(fig, width='stretch')
 
+    # Point out the worst stations on the current selection
+    worst_dep = top_departure_stations.iloc[0]
+    worst_arr = top_arrival_stations.iloc[0]
+    st.info(
+        f"💡 **Lecture** : points noirs du réseau sur la sélection courante. Au départ, "
+        f"**{worst_dep['Departure station']}** est la plus pénalisée "
+        f"(**{worst_dep[DELAY_COL]:.1f} min**) ; à l'arrivée, **{worst_arr['Arrival station']}** "
+        f"(**{worst_arr[DELAY_COL]:.1f} min**). Un retard pris au départ se reporte souvent en bout de ligne."
+    )
+
 
 # Show the top 10 most delayed routes
 def render_top_routes(df: pd.DataFrame):
@@ -261,6 +305,21 @@ def render_top_routes(df: pd.DataFrame):
     ax.set_ylabel("")
     fig.tight_layout()
     st.pyplot(fig, width='stretch')
+
+    # Name the worst route and compare service types when both are present
+    worst_route = top_routes.iloc[0]
+    insight = (
+        f"💡 **Lecture** : sur la sélection, la liaison la plus en retard est "
+        f"**{worst_route['Route']}** (**{worst_route[DELAY_COL]:.1f} min**). "
+    )
+    service_means = df.groupby("Service")[DELAY_COL].mean()
+    if {"INTERNATIONAL", "NATIONAL"}.issubset(service_means.index):
+        insight += (
+            f"En moyenne, l'international (**{service_means['INTERNATIONAL']:.1f} min**) "
+            f"retarde plus que le national (**{service_means['NATIONAL']:.1f} min**), "
+            f"les longues distances cumulant davantage d'aléas."
+        )
+    st.info(insight)
 
 
 # Render the full exploration tab
@@ -393,6 +452,21 @@ def render_prediction_result(df: pd.DataFrame, model, user_inputs: dict):
     )
     history_col.metric(mean_label, f"{historical_mean:.2f} min")
 
+    # Translate the prediction into a decision-oriented sentence
+    gap = predicted_delay - historical_mean
+    if gap > 0:
+        verdict = (
+            f"soit **+{gap:.1f} min** vs {mean_label.lower()} : trajet plus risqué que d'habitude."
+        )
+    else:
+        verdict = (
+            f"soit **{gap:.1f} min** vs {mean_label.lower()} : trajet plutôt favorable."
+        )
+    st.info(
+        f"💡 **Aide à la décision** : retard estimé **{predicted_delay:.1f} min**, {verdict} "
+        f"Le seuil de ponctualité reste {PUNCTUALITY_THRESHOLD_MIN:.0f} min."
+    )
+
 
 # Model feature readable names
 FEATURE_LABELS = {
@@ -405,10 +479,12 @@ FEATURE_LABELS = {
     "Year": "Année de circulation",
     "Traffic_Pressure": "Pression du trafic (trains réalisés / prévus)",
     "Cancellation_Severity": "Taux d'annulation des trains",
-    "Heavy_Delay_Impact": "Poids des retards supérieurs à 15 min",
     "Internal_Fault_pct": "Part des retards dus à la SNCF",
     "External_Fault_pct": "Part des retards d'origine externe",
-    "Delay_Probability": "Probabilité d'un retard supérieur à 15 min",
+    "Delay_Probability": "Probabilité d'un train en retard",
+    "Hight_Delay_Impact": "Poids des retards supérieurs à 60 min",
+    "Medium_Delay_Impact": "Poids des retards supérieurs à 30 min",
+    "Light_Delay_Impact": "Poids des retards supérieurs à 15 min",
 }
 
 # Categorical features (one-hot encoded by the model)
@@ -432,7 +508,7 @@ def convert_feature_name(raw_feature_name: str) -> str:
 
 
 # Show the 10 features that influence the model the most
-def render_feature_importances(model):
+def render_feature_importances(model, df: pd.DataFrame):
     # Get the model and the preprocessor
     estimator = model.named_steps.get("model")
     preprocessor = model.named_steps.get("prep")
@@ -466,6 +542,15 @@ def render_feature_importances(model):
     fig.tight_layout()
     st.pyplot(fig, width='stretch')
 
+    # Summarise what drives the model and how actionable it is
+    top_feature_name = top_features.iloc[0]["Caractéristique"]
+    internal_pct = df["Internal_Fault_pct"].mean()
+    st.info(
+        f"💡 **Lecture** : le modèle s'appuie d'abord sur **{top_feature_name}**. "
+        f"À retenir : **{internal_pct:.0f} %** des retards sont d'origine interne SNCF, "
+        f"donc en partie actionnables (matériel, conduite, gestion)."
+    )
+
 
 # Render the full prediction tab
 def render_prediction(df: pd.DataFrame, model):
@@ -483,7 +568,7 @@ def render_prediction(df: pd.DataFrame, model):
     # Bottom of the tab: explain how the model makes its decision
     st.divider()
     st.subheader("Comment le modèle prend ses décisions:")
-    render_feature_importances(model)
+    render_feature_importances(model, df)
 
 
 ## - Dashboard
