@@ -6,7 +6,7 @@
 !*.py
 !.gitignore
 !.github/workflows/*
-!.README
+!README.md
 !cleaned_dataset.csv
 !model.joblib
 !requirements.txt
