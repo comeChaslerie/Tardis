@@ -278,10 +278,10 @@ def render_top_stations(df: pd.DataFrame):
     worst_dep = top_departure_stations.iloc[0]
     worst_arr = top_arrival_stations.iloc[0]
     st.info(
-        f"💡 **Lecture** : points noirs du réseau sur la sélection courante. Au départ, "
-        f"**{worst_dep['Departure station']}** est la plus pénalisée "
-        f"(**{worst_dep[DELAY_COL]:.1f} min**) ; à l'arrivée, **{worst_arr['Arrival station']}** "
-        f"(**{worst_arr[DELAY_COL]:.1f} min**). Un retard pris au départ se reporte souvent en bout de ligne."
+        f"On peut observer que sur la séléction la gare la plus en retard, au départ, est "
+        f"**{worst_dep['Departure station']}** "
+        f"(**{worst_dep[DELAY_COL]:.1f} min**) , et à l'arrivée, est **{worst_arr['Arrival station']}** "
+        f"(**{worst_arr[DELAY_COL]:.1f} min**)."
     )
 
 
@@ -309,16 +309,10 @@ def render_top_routes(df: pd.DataFrame):
     # Name the worst route and compare service types when both are present
     worst_route = top_routes.iloc[0]
     insight = (
-        f"💡 **Lecture** : sur la sélection, la liaison la plus en retard est "
+        f"Sur la sélection, on peut observer que: la liaison la plus en retard est "
         f"**{worst_route['Route']}** (**{worst_route[DELAY_COL]:.1f} min**). "
     )
     service_means = df.groupby("Service")[DELAY_COL].mean()
-    if {"INTERNATIONAL", "NATIONAL"}.issubset(service_means.index):
-        insight += (
-            f"En moyenne, l'international (**{service_means['INTERNATIONAL']:.1f} min**) "
-            f"retarde plus que le national (**{service_means['NATIONAL']:.1f} min**), "
-            f"les longues distances cumulant davantage d'aléas."
-        )
     st.info(insight)
 
 
@@ -463,7 +457,7 @@ def render_prediction_result(df: pd.DataFrame, model, user_inputs: dict):
             f"soit **{gap:.1f} min** vs {mean_label.lower()} : trajet plutôt favorable."
         )
     st.info(
-        f"💡 **Aide à la décision** : retard estimé **{predicted_delay:.1f} min**, {verdict} "
+        f"Le retard estimé est de **{predicted_delay:.1f} min**, {verdict} "
         f"Le seuil de ponctualité reste {PUNCTUALITY_THRESHOLD_MIN:.0f} min."
     )
 
@@ -544,11 +538,8 @@ def render_feature_importances(model, df: pd.DataFrame):
 
     # Summarise what drives the model and how actionable it is
     top_feature_name = top_features.iloc[0]["Caractéristique"]
-    internal_pct = df["Internal_Fault_pct"].mean()
     st.info(
-        f"💡 **Lecture** : le modèle s'appuie d'abord sur **{top_feature_name}**. "
-        f"À retenir : **{internal_pct:.0f} %** des retards sont d'origine interne SNCF, "
-        f"donc en partie actionnables (matériel, conduite, gestion)."
+        f"On peut observer que le modèle s'appuie d'abord sur **{top_feature_name}**. "
     )
 
 
